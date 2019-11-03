@@ -1,0 +1,67 @@
+______      _      _        
+| ___ \    (_)    | |       
+| |_/ /_ __ _  ___| | _____ 
+| ___ \ '__| |/ __| |/ / __|
+| |_/ / |  | | (__|   <\__ \
+\____/|_|  |_|\___|_|\_\___/
+                            
+Bricks, a paddle/ball game that fits in one boot sector (510 bytes)
+by Oscar Toledo G. Nov/02/2019
+
+http://nanochess.org
+https://github.com/nanochess/bricks
+
+It's compatible with 8088 (the original IBM PC)
+
+If you want to assemble it, you must download the Netwide Assembler
+(nasm) from www.nasm.us
+
+Use this command line:
+
+  nasm -f bin bricks.asm -l bricks.lst -o bricks.img
+  nasm -f bin bricks.asm -Dcom_file=1 -o bricks.com
+
+
+>> HOW TO PLAY <<
+
+Press Left Shift to start the ball.
+
+Press Left Ctrl to move to the left, and press Left Alt to move to the right.
+
+Each brick scores for one point. To finish faster, try to get a streak of several bricks when the ball rebounds from brick to brick.
+
+You have 4 balls to finish the courtyard.
+
+Enjoy it!
+
+
+>> ATTENTION <<        
+
+Would you like to learn 8086/8088 programming? Then you
+must get my new book Programming Boot Sector Games including
+a 8086/8088/V20 crash course!
+
+Now available from Lulu:
+
+  Soft-cover
+    http://www.lulu.com/shop/oscar-toledo-gutierrez/programming-boot-sector-games/paperback/product-24188564.html
+
+  Hard-cover
+    http://www.lulu.com/shop/oscar-toledo-gutierrez/programming-boot-sector-games/hardcover/product-24188530.html
+
+  eBook
+    https://nanochess.org/store.html
+
+These are some of the example programs documented profusely
+in the book:
+
+  * Guess the number.
+  * Tic-Tac-Toe game.
+  * Text graphics.
+  * Mandelbrot set.
+  * F-Bird game.
+  * Invaders game.
+  * Pillman game.
+  * Toledo Atomchess.
+  * bootBASIC language.
+

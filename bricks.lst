@@ -1,0 +1,307 @@
+     1                                  	;
+     2                                  	; Bricks game in one boot sector
+     3                                  	;
+     4                                  	; by Oscar Toledo G.
+     5                                  	;
+     6                                  	; Creation date: Nov/02/2019.
+     7                                  	;
+     8                                  
+     9                                  	cpu 8086
+    10                                  
+    11                                      %ifdef com_file
+    12                                          org 0x0100
+    13                                      %else
+    14                                          org 0x7c00
+    15                                      %endif
+    16                                  
+    17                                  old_time:	equ 0x0fa0	; Old time 
+    18                                  ball_x:		equ 0x0fa2	; X-coordinate of ball (8.8 fraction)
+    19                                  ball_y:		equ 0x0fa4	; Y-coordinate of ball (8.8 fraction)
+    20                                  ball_xs:	equ 0x0fa6	; X-speed of ball (8.8 fraction)
+    21                                  ball_ys:	equ 0x0fa8	; Y-speed of ball (8.8 fraction)
+    22                                  beep:		equ 0x0faa	; Frame count to turn off sound
+    23                                  bricks:		equ 0x0fac	; Remaining bricks
+    24                                  balls:         equ 0x0fae	; Remaining balls
+    25                                  score:         equ 0x0fb0	; Current score
+    26                                  
+    27                                  	;
+    28                                  	; Start of the game
+    29                                  	;
+    30                                  start:
+    31 00000000 B80200                  	mov ax,0x0002		; Text mode 80x25x16 colors
+    32 00000003 CD10                    	int 0x10		; Setup
+    33 00000005 B800B8                  	mov ax,0xb800		; Address of video screen
+    34 00000008 8ED8                    	mov ds,ax		; Setup DS
+    35 0000000A 8EC0                    	mov es,ax		; Setup ES
+    36 0000000C C706B00F0000            	mov word [score],0	; Reset score
+    37 00000012 C606AE0F04              	mov byte [balls],4	; Balls remaining
+    38                                  	;
+    39                                  	; Start another level 
+    40                                  	;
+    41                                  another_level:
+    42 00000017 C706AC0F1101            	mov word [bricks],273	; 273 bricks on screen
+    43 0000001D 31FF                    	xor di,di
+    44 0000001F B8B101                  	mov ax,0x01b1		; Draw top border
+    45 00000022 B95000                  	mov cx,80
+    46 00000025 FC                      	cld
+    47 00000026 F3AB                    	rep stosw
+    48 00000028 B91800                  	mov cx,24		; 24 rows
+    49                                  .1:
+    50 0000002B AB                      	stosw			; Draw left border
+    51 0000002C B82000                  	mov ax,0x20		; No bricks on this row
+    52 0000002F 51                      	push cx
+    53 00000030 83F917                  	cmp cx,23
+    54 00000033 7309                    	jae .2
+    55 00000035 83E90F                  	sub cx,15
+    56 00000038 7604                    	jbe .2
+    57 0000003A B0DB                    	mov al,0xdb		; Bricks on this row
+    58 0000003C 88CC                    	mov ah,cl
+    59                                  .2:
+    60 0000003E B92700                  	mov cx,39		; 39 bricks per row
+    61                                  .3:
+    62 00000041 AB                      	stosw
+    63 00000042 AB                      	stosw
+    64 00000043 FEC4                    	inc ah			; Increase attribute color
+    65 00000045 80FC08                  	cmp ah,0x08
+    66 00000048 7502                    	jne .4
+    67 0000004A B401                    	mov ah,0x01
+    68                                  .4:
+    69 0000004C E2F3                    	loop .3
+    70 0000004E 59                      	pop cx
+    71                                  
+    72 0000004F B8B101                  	mov ax,0x01b1		; Draw right border
+    73 00000052 AB                      	stosw
+    74 00000053 E2D6                    	loop .1
+    75                                  
+    76                                  	;
+    77                                  	; Start another ball
+    78                                  	;
+    79 00000055 BF4A0F                  	mov di,0x0f4a		; Position of paddle
+    80                                  another_ball:
+    81 00000058 C606A30F28              	mov byte [ball_x+1],0x28	; Center X
+    82 0000005D C606A50F14              	mov byte [ball_y+1],0x14	; Center Y
+    83 00000062 31C0                    	xor ax,ax
+    84 00000064 A3A60F                  	mov [ball_xs],ax	; Static on screen
+    85 00000067 A3A80F                  	mov [ball_ys],ax
+    86 0000006A C606AA0F01              	mov byte [beep],0x01
+    87                                  
+    88 0000006F BEFE0F                  	mov si,0x0ffe		; Don't erase ball yet
+    89                                  game_loop:
+    90 00000072 E82401                  	call wait_frame		; Wait 1/18.2 secs.
+    91                                  
+    92 00000075 C7040000                	mov word [si],0x0000	; Erase ball
+    93                                  	
+    94 00000079 E85D01                  	call update_score	; Update score
+    95                                  	
+    96 0000007C B402                    	mov ah,0x02		; Read modifier keys
+    97 0000007E CD16                    	int 0x16
+    98 00000080 A804                    	test al,0x04		; Left ctrl
+    99 00000082 7414                    	je .1
+   100 00000084 C6450600                	mov byte [di+6],0	; Erase right side of paddle
+   101 00000088 C6450800                	mov byte [di+8],0
+   102 0000008C 83EF04                  	sub di,byte 4		; Move paddle to left
+   103 0000008F 81FF020F                	cmp di,0x0f02		; Limit
+   104 00000093 7703                    	ja .1
+   105 00000095 BF020F                  	mov di,0x0f02
+   106                                  .1:
+   107 00000098 A808                    	test al,0x08		; Left alt
+   108 0000009A 740D                    	je .2
+   109 0000009C 31C0                    	xor ax,ax		; Erase left side of paddle
+   110 0000009E AB                      	stosw
+   111 0000009F AB                      	stosw			; DI increased automatically
+   112 000000A0 81FF940F                	cmp di,0x0f94		; Limit
+   113 000000A4 7203                    	jb .2
+   114 000000A6 BF940F                  	mov di,0x0f94	
+   115                                  .2:
+   116 000000A9 A802                    	test al,0x02		; Left shift
+   117 000000AB 7415                    	je .15
+   118 000000AD A1A60F                  	mov ax,[ball_xs]	; Ball moving?
+   119 000000B0 0306A80F                	add ax,[ball_ys]
+   120 000000B4 750C                    	jne .15			; Yes, jump
+   121                                  				; Setup movement of ball
+   122 000000B6 C706A60F40FF            	mov word [ball_xs],0xff40
+   123 000000BC C706A80F80FF            	mov word [ball_ys],0xff80
+   124                                  .15:
+   125 000000C2 B8DF0A                  	mov ax,0x0adf		; Paddle graphic and color
+   126 000000C5 57                      	push di
+   127 000000C6 AB                      	stosw			; Draw paddle
+   128 000000C7 AB                      	stosw
+   129 000000C8 AB                      	stosw
+   130 000000C9 AB                      	stosw
+   131 000000CA AB                      	stosw
+   132 000000CB 5F                      	pop di
+   133                                  
+   134 000000CC 8B1EA20F                	mov bx,[ball_x]		; Draw ball
+   135 000000D0 A1A40F                  	mov ax,[ball_y]
+   136 000000D3 E8F600                  	call locate_ball	; Locate on screen
+   137 000000D6 F606A40F80              	test byte [ball_y],0x80	; Y-coordinate half fraction?
+   138 000000DB B460                    	mov ah,0x60		; Interchange colors for smooth mov.
+   139 000000DD 7402                    	je .12
+   140 000000DF B406                    	mov ah,0x06
+   141 000000E1 B0DC                    .12:	mov al,0xdc		; Graphic
+   142 000000E3 8907                    	mov [bx],ax		; Draw
+   143 000000E5 53                      	push bx
+   144 000000E6 5E                      	pop si
+   145                                  
+   146                                  .14:
+   147 000000E7 8B1EA20F                	mov bx,[ball_x]		; Ball position
+   148 000000EB A1A40F                  	mov ax,[ball_y]
+   149 000000EE 031EA60F                	add bx,[ball_xs]	; Add movement speed
+   150 000000F2 0306A80F                	add ax,[ball_ys]
+   151 000000F6 50                      	push ax
+   152 000000F7 53                      	push bx
+   153 000000F8 E8D100                  	call locate_ball	; Locate on screen
+   154 000000FB 8A07                    	mov al,[bx]
+   155 000000FD 3CB1                    	cmp al,0xb1		; Touching borders
+   156 000000FF 7520                    	jne .3
+   157 00000101 B92F15                  	mov cx,5423		; 1193180 / 220
+   158 00000104 E8AD00                  	call speaker		; Generate sound
+   159 00000107 5B                      	pop bx
+   160 00000108 58                      	pop ax
+   161 00000109 80FF4F                  	cmp bh,0x4f
+   162 0000010C 7404                    	je .8
+   163 0000010E 84FF                    	test bh,bh
+   164 00000110 7504                    	jne .7
+   165                                  .8:
+   166 00000112 F71EA60F                	neg word [ball_xs]	; Negate X-speed if touches sides
+   167                                  .7:	
+   168 00000116 80FC00                  	cmp ah,0x00
+   169 00000119 7504                    	jne .9
+   170 0000011B F71EA80F                	neg word [ball_ys]	; Negate Y-speed if touches sides
+   171 0000011F EBC6                    .9:	jmp .14
+   172                                  
+   173                                  .3:
+   174 00000121 3CDF                    	cmp al,0xdf		; Touching paddle
+   175 00000123 751D                    	jne .4
+   176 00000125 29FB                    	sub bx,di		; Subtract paddle position
+   177 00000127 83EB04                  	sub bx,byte 4
+   178 0000012A B106                    	mov cl,6		; Multiply by 64
+   179 0000012C D3E3                    	shl bx,cl
+   180 0000012E 891EA60F                	mov [ball_xs],bx	; New X speed for ball
+   181 00000132 C706A80F80FF            	mov word [ball_ys],0xff80	; Update Y speed for ball
+   182 00000138 B9970A                  	mov cx,2711		; 1193180 / 440
+   183 0000013B E87600                  	call speaker		; Generate sound
+   184 0000013E 5B                      	pop bx
+   185 0000013F 58                      	pop ax
+   186 00000140 EBA5                    	jmp .14
+   187                                  
+   188                                  .4:
+   189 00000142 3CDB                    	cmp al,0xdb		; Touching brick
+   190 00000144 752A                    	jne .5
+   191 00000146 B94B05                  	mov cx,1355		; 1193180 / 880
+   192 00000149 E86800                  	call speaker		; Generate sound
+   193 0000014C F6C302                  	test bl,2		; Aligned with brick?
+   194 0000014F 7502                    	jne .10			; Yes, jump
+   195 00000151 4B                      	dec bx			; Align
+   196 00000152 4B                      	dec bx
+   197 00000153 31C0                    .10:	xor ax,ax		; Erase brick
+   198 00000155 8907                    	mov [bx],ax
+   199 00000157 894702                  	mov [bx+2],ax
+   200 0000015A FF06B00F                	inc word [score]	; Increase score
+   201 0000015E F71EA80F                	neg word [ball_ys]	; Negate Y speed (rebound)
+   202 00000162 5B                      	pop bx
+   203 00000163 58                      	pop ax
+   204 00000164 FF0EAC0F                	dec word [bricks]	; One brick less on screen
+   205 00000168 7403E97AFF              	jne .14			; Fully completed? No, jump.
+   206 0000016D E9A7FE                  	jmp another_level	; Start another level
+   207                                  
+   208                                  .5:
+   209 00000170 5B                      	pop bx
+   210 00000171 58                      	pop ax
+   211                                  .6:
+   212 00000172 891EA20F                	mov [ball_x],bx		; Update ball position
+   213 00000176 A3A40F                  	mov [ball_y],ax
+   214 00000179 80FC19                  	cmp ah,0x19		; Ball exited through bottom?
+   215 0000017C 7403                    	je ball_lost		; Yes, jump
+   216 0000017E E9F1FE                  	jmp game_loop		; No, repeat game loop
+   217                                  
+   218                                  	;
+   219                                  	; Ball lost
+   220                                  	; 
+   221                                  ball_lost:
+   222 00000181 B95E2A                  	mov cx,10846		; 1193180 / 110
+   223 00000184 E82D00                  	call speaker		; Generate sound
+   224                                  
+   225 00000187 C7040000                	mov word [si],0		; Erase ball
+   226 0000018B FE0EAE0F                	dec byte [balls]	; One ball less
+   227 0000018F 7803                    	js .1			; All finished? Yes, jump
+   228 00000191 E9C4FE                  	jmp another_ball	; Start another ball
+   229                                  
+   230 00000194 E81600                  .1:	call wait_frame.2	; Turn off sound
+   231 00000197 CD20                    	int 0x20		; Exit to DOS / bootOS
+   232                                  
+   233                                  wait_frame:
+   234                                  .0:
+   235 00000199 B400                    	mov ah,0x00		; Read ticks
+   236 0000019B CD1A                    	int 0x1a		; Call BIOS
+   237 0000019D 3B16A00F                	cmp dx,[old_time]	; Wait for change
+   238 000001A1 74F6                    	je .0
+   239 000001A3 8916A00F                	mov [old_time],dx
+   240                                  
+   241 000001A7 FE0EAA0F                	dec byte [beep]		; Decrease time to turn off beep
+   242 000001AB 7506                    	jne .1
+   243                                  .2:
+   244 000001AD E461                    	in al,0x61
+   245 000001AF 24FC                    	and al,0xfc		; Turn off
+   246 000001B1 E661                    	out 0x61,al
+   247                                  .1:
+   248                                  
+   249 000001B3 C3                      	ret
+   250                                  
+   251                                  	;
+   252                                  	; Generate sound on PC speaker
+   253                                  	;
+   254                                  speaker:
+   255 000001B4 B0B6                    	mov al,0xb6		; Setup timer 2
+   256 000001B6 E643                    	out 0x43,al
+   257 000001B8 88C8                    	mov al,cl		; Low byte of timer count
+   258 000001BA E642                    	out 0x42,al
+   259 000001BC 88E8                    	mov al,ch		; High byte of timer count
+   260 000001BE E642                    	out 0x42,al
+   261 000001C0 E461                    	in al,0x61
+   262 000001C2 0C03                    	or al,0x03		; Connect PC speaker to timer 2
+   263 000001C4 E661                    	out 0x61,al
+   264 000001C6 C606AA0F03              	mov byte [beep],3	; Duration
+   265 000001CB C3                      	ret
+   266                                  
+   267                                  	;
+   268                                  	; Locate ball on screen
+   269                                  	;
+   270                                  locate_ball:
+   271 000001CC B0A0                    	mov al,0xa0
+   272 000001CE F6E4                    	mul ah			; AH = Y coordinate (row)
+   273 000001D0 88FB                    	mov bl,bh		; BH = X coordinate (column)
+   274 000001D2 B700                    	mov bh,0
+   275 000001D4 D1E3                    	shl bx,1
+   276 000001D6 01C3                    	add bx,ax
+   277 000001D8 C3                      	ret
+   278                                  
+   279                                  	;
+   280                                  	; Update score indicator (from bootRogue)
+   281                                  	;
+   282                                  update_score:
+   283 000001D9 BB980F                  	mov bx,0x0f98		; Point to bottom right corner
+   284 000001DC A1B00F                  	mov ax,[score]
+   285 000001DF E80300                  	call .1
+   286 000001E2 A0AE0F                  	mov al,[balls]
+   287                                  .1:
+   288 000001E5 31C9                    	xor cx,cx              ; CX = Quotient
+   289 000001E7 41                      .2:	inc cx
+   290 000001E8 83E80A                  	sub ax,10              ; Division by subtraction
+   291 000001EB 73FA                    	jnc .2
+   292 000001ED 053A0A                  	add ax,0x0a3a          ; Convert remainder to ASCII digit + color
+   293 000001F0 E80400                  	call .3                ; Put on screen
+   294 000001F3 91                      	xchg ax,cx
+   295 000001F4 48                      	dec ax                 ; Quotient is zero?
+   296 000001F5 75EE                    	jnz .1                 ; No, jump to show more digits.
+   297                                  
+   298 000001F7 8907                    .3:	mov [bx],ax
+   299 000001F9 4B                      	dec bx
+   300 000001FA 4B                      	dec bx
+   301 000001FB C3                      	ret
+   302                                  
+   303                                      %ifdef com_file
+   304                                      %else
+   305 000001FC 4F<rept>                	times 510-($-$$) db 0x4f
+   306 000001FE 55AA                    	db 0x55,0xaa           ; Make it a bootable sector
+   307                                      %endif
