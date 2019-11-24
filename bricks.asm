@@ -20,15 +20,15 @@
         org 0x7c00
     %endif
 
-old_time:	equ 0x0fa0	; Old time 
-ball_x:		equ 0x0fa2	; X-coordinate of ball (8.8 fraction)
-ball_y:		equ 0x0fa4	; Y-coordinate of ball (8.8 fraction)
-ball_xs:	equ 0x0fa6	; X-speed of ball (8.8 fraction)
-ball_ys:	equ 0x0fa8	; Y-speed of ball (8.8 fraction)
-beep:		equ 0x0faa	; Frame count to turn off sound
-bricks:		equ 0x0fac	; Remaining bricks
-balls:         equ 0x0fae	; Remaining balls
-score:         equ 0x0fb0	; Current score
+old_time:	equ 0	; Old time 
+ball_x:		equ 2	; X-coordinate of ball (8.8 fraction)
+ball_y:		equ 4	; Y-coordinate of ball (8.8 fraction)
+ball_xs:	equ 6	; X-speed of ball (8.8 fraction)
+ball_ys:	equ 8	; Y-speed of ball (8.8 fraction)
+beep:		equ 10	; Frame count to turn off sound
+bricks:		equ 12	; Remaining bricks
+balls:         equ 14	; Remaining balls
+score:         equ 16	; Current score
 
 	;
 	; Start of the game
@@ -36,16 +36,18 @@ score:         equ 0x0fb0	; Current score
 start:
 	mov ax,0x0002		; Text mode 80x25x16 colors
 	int 0x10		; Setup
+	mov bp,sp		; Setup stack frame for globals
+	sub sp,32
 	mov ax,0xb800		; Address of video screen
 	mov ds,ax		; Setup DS
 	mov es,ax		; Setup ES
-	mov word [score],0	; Reset score
-	mov byte [balls],4	; Balls remaining
+	mov word [bp+score],0	; Reset score
+	mov byte [bp+balls],4	; Balls remaining
 	;
 	; Start another level 
 	;
 another_level:
-	mov word [bricks],273	; 273 bricks on screen
+	mov word [bp+bricks],273	; 273 bricks on screen
 	xor di,di
 	mov ax,0x01b1		; Draw top border
 	mov cx,80
@@ -84,12 +86,12 @@ another_level:
 	;
 	mov di,0x0f4a		; Position of paddle
 another_ball:
-	mov byte [ball_x+1],0x28	; Center X
-	mov byte [ball_y+1],0x14	; Center Y
+	mov byte [bp+ball_x+1],0x28	; Center X
+	mov byte [bp+ball_y+1],0x14	; Center Y
 	xor ax,ax
-	mov [ball_xs],ax	; Static on screen
-	mov [ball_ys],ax
-	mov byte [beep],0x01
+	mov [bp+ball_xs],ax	; Static on screen
+	mov [bp+ball_ys],ax
+	mov byte [bp+beep],0x01
 
 	mov si,0x0ffe		; Don't erase ball yet
 game_loop:
@@ -121,12 +123,12 @@ game_loop:
 .2:
 	test al,0x02		; Left shift
 	je .15
-	mov ax,[ball_xs]	; Ball moving?
-	add ax,[ball_ys]
+	mov ax,[bp+ball_xs]	; Ball moving?
+	add ax,[bp+ball_ys]
 	jne .15			; Yes, jump
 				; Setup movement of ball
-	mov word [ball_xs],0xff40
-	mov word [ball_ys],0xff80
+	mov word [bp+ball_xs],0xff40
+	mov word [bp+ball_ys],0xff80
 .15:
 	mov ax,0x0adf		; Paddle graphic and color
 	push di
@@ -137,10 +139,10 @@ game_loop:
 	stosw
 	pop di
 
-	mov bx,[ball_x]		; Draw ball
-	mov ax,[ball_y]
+	mov bx,[bp+ball_x]		; Draw ball
+	mov ax,[bp+ball_y]
 	call locate_ball	; Locate on screen
-	test byte [ball_y],0x80	; Y-coordinate half fraction?
+	test byte [bp+ball_y],0x80	; Y-coordinate half fraction?
 	mov ah,0x60		; Interchange colors for smooth mov.
 	je .12
 	mov ah,0x06
@@ -150,10 +152,10 @@ game_loop:
 	pop si
 
 .14:
-	mov bx,[ball_x]		; Ball position
-	mov ax,[ball_y]
-	add bx,[ball_xs]	; Add movement speed
-	add ax,[ball_ys]
+	mov bx,[bp+ball_x]		; Ball position
+	mov ax,[bp+ball_y]
+	add bx,[bp+ball_xs]	; Add movement speed
+	add ax,[bp+ball_ys]
 	push ax
 	push bx
 	call locate_ball	; Locate on screen
@@ -169,11 +171,11 @@ game_loop:
 	test bh,bh
 	jne .7
 .8:
-	neg word [ball_xs]	; Negate X-speed if touches sides
+	neg word [bp+ball_xs]	; Negate X-speed if touches sides
 .7:	
-	cmp ah,0x00
-	jne .9
-	neg word [ball_ys]	; Negate Y-speed if touches sides
+	test ah,ah
+	jnz .9
+	neg word [bp+ball_ys]	; Negate Y-speed if touches sides
 .9:	jmp .14
 
 .3:
@@ -183,8 +185,8 @@ game_loop:
 	sub bx,byte 4
 	mov cl,6		; Multiply by 64
 	shl bx,cl
-	mov [ball_xs],bx	; New X speed for ball
-	mov word [ball_ys],0xff80	; Update Y speed for ball
+	mov [bp+ball_xs],bx	; New X speed for ball
+	mov word [bp+ball_ys],0xff80	; Update Y speed for ball
 	mov cx,2711		; 1193180 / 440
 	call speaker		; Generate sound
 	pop bx
@@ -203,11 +205,11 @@ game_loop:
 .10:	xor ax,ax		; Erase brick
 	mov [bx],ax
 	mov [bx+2],ax
-	inc word [score]	; Increase score
-	neg word [ball_ys]	; Negate Y speed (rebound)
+	inc word [bp+score]	; Increase score
+	neg word [bp+ball_ys]	; Negate Y speed (rebound)
 	pop bx
 	pop ax
-	dec word [bricks]	; One brick less on screen
+	dec word [bp+bricks]	; One brick less on screen
 	jne .14			; Fully completed? No, jump.
 	jmp another_level	; Start another level
 
@@ -215,8 +217,8 @@ game_loop:
 	pop bx
 	pop ax
 .6:
-	mov [ball_x],bx		; Update ball position
-	mov [ball_y],ax
+	mov [bp+ball_x],bx		; Update ball position
+	mov [bp+ball_y],ax
 	cmp ah,0x19		; Ball exited through bottom?
 	je ball_lost		; Yes, jump
 	jmp game_loop		; No, repeat game loop
@@ -229,7 +231,7 @@ ball_lost:
 	call speaker		; Generate sound
 
 	mov word [si],0		; Erase ball
-	dec byte [balls]	; One ball less
+	dec byte [bp+balls]	; One ball less
 	js .1			; All finished? Yes, jump
 	jmp another_ball	; Start another ball
 
@@ -240,11 +242,11 @@ wait_frame:
 .0:
 	mov ah,0x00		; Read ticks
 	int 0x1a		; Call BIOS
-	cmp dx,[old_time]	; Wait for change
+	cmp dx,[bp+old_time]	; Wait for change
 	je .0
-	mov [old_time],dx
+	mov [bp+old_time],dx
 
-	dec byte [beep]		; Decrease time to turn off beep
+	dec byte [bp+beep]		; Decrease time to turn off beep
 	jne .1
 .2:
 	in al,0x61
@@ -267,7 +269,7 @@ speaker:
 	in al,0x61
 	or al,0x03		; Connect PC speaker to timer 2
 	out 0x61,al
-	mov byte [beep],3	; Duration
+	mov byte [bp+beep],3	; Duration
 	ret
 
 	;
@@ -287,9 +289,9 @@ locate_ball:
 	;
 update_score:
 	mov bx,0x0f98		; Point to bottom right corner
-	mov ax,[score]
+	mov ax,[bp+score]
 	call .1
-	mov al,[balls]
+	mov al,[bp+balls]
 .1:
 	xor cx,cx              ; CX = Quotient
 .2:	inc cx
