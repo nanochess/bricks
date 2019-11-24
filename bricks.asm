@@ -20,15 +20,15 @@
         org 0x7c00
     %endif
 
-old_time:	equ 0	; Old time 
-ball_x:		equ 2	; X-coordinate of ball (8.8 fraction)
-ball_y:		equ 4	; Y-coordinate of ball (8.8 fraction)
-ball_xs:	equ 6	; X-speed of ball (8.8 fraction)
+old_time:	equ 16	; Old time 
+ball_x:		equ 14	; X-coordinate of ball (8.8 fraction)
+ball_y:		equ 12	; Y-coordinate of ball (8.8 fraction)
+ball_xs:	equ 10	; X-speed of ball (8.8 fraction)
 ball_ys:	equ 8	; Y-speed of ball (8.8 fraction)
-beep:		equ 10	; Frame count to turn off sound
-bricks:		equ 12	; Remaining bricks
-balls:         equ 14	; Remaining balls
-score:         equ 16	; Current score
+beep:		equ 6	; Frame count to turn off sound
+bricks:		equ 4	; Remaining bricks
+balls:         equ 2	; Remaining balls
+score:         equ 0	; Current score
 
 	;
 	; Start of the game
@@ -36,13 +36,15 @@ score:         equ 16	; Current score
 start:
 	mov ax,0x0002		; Text mode 80x25x16 colors
 	int 0x10		; Setup
-	mov bp,sp		; Setup stack frame for globals
-	sub sp,32
 	mov ax,0xb800		; Address of video screen
 	mov ds,ax		; Setup DS
 	mov es,ax		; Setup ES
-	mov word [bp+score],0	; Reset score
-	mov byte [bp+balls],4	; Balls remaining
+	sub sp,32
+	xor ax,ax
+	push ax			; Reset score
+	mov al,4		
+	push ax			; Balls remaining
+	mov bp,sp		; Setup stack frame for globals
 	;
 	; Start another level 
 	;
@@ -53,19 +55,19 @@ another_level:
 	mov cx,80
 	cld
 	rep stosw
-	mov cx,24		; 24 rows
+	mov cl,24		; 24 rows
 .1:
 	stosw			; Draw left border
 	mov ax,0x20		; No bricks on this row
 	push cx
-	cmp cx,23
-	jae .2
-	sub cx,15
+	cmp cl,23
+	jnb .2
+	sub cl,15
 	jbe .2
 	mov al,0xdb		; Bricks on this row
 	mov ah,cl
 .2:
-	mov cx,39		; 39 bricks per row
+	mov cl,39		; 39 bricks per row
 .3:
 	stosw
 	stosw
