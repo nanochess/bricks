@@ -37,6 +37,14 @@ There is sound using the PC speaker (doesn't work with VirtualBox except in the 
 Enjoy it!
 
 
+>> RESOURCES <<
+
+jaens contributed optimizations of code and also has made a
+C language version of Bricks, you can download it at:
+
+  https://github.com/jaens/bricks-cport
+
+
 >> ATTENTION <<        
 
 Would you like to learn 8086/8088 programming? Then you
