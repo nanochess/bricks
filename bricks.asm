@@ -10,8 +10,8 @@
 
 	;
 	; Press Left Shift to start the game
-	; Press Left Ctrl to move the paddle to left
-	; Press Left Alt to move the paddle to right
+	; Press Left Ctrl to move the paddle to the left
+	; Press Left Alt to move the paddle to the right
 	;
 
     %ifdef com_file
@@ -173,11 +173,11 @@ game_loop:
 	test bh,bh
 	jne .7
 .8:
-	neg word [bp+ball_xs]	; Negate X-speed if touches sides
+	neg word [bp+ball_xs]	; Negate X-speed if it touches a side
 .7:	
 	test ah,ah
 	jnz .9
-	neg word [bp+ball_ys]	; Negate Y-speed if touches sides
+	neg word [bp+ball_ys]	; Negate Y-speed if it touches a side
 .9:	jmp .14
 
 .3:
